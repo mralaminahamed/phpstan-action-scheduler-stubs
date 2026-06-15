@@ -8,12 +8,12 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 set -e
 
-PACKAGIST_JSON="$(wget -q -O- "https://repo.packagist.org/p2/woocommerce/action-scheduler.json")"
+PACKAGIST_JSON="$(wget -q -O- "https://packagist.org/packages/woocommerce/action-scheduler.json")"
 
 VERSIONS=(3.4 3.5 3.6 3.7 3.8 3.9)
 
 for V in "${VERSIONS[@]}"; do
-    printf -v JQ_FILTER '."packages"."woocommerce/action-scheduler"[] | select(.version | test("^%s\\.%s\\.\\d+$")) | .version' "${V%.*}" "${V#*.}"
+    printf -v JQ_FILTER '."package"."versions" | keys[] | select(test("^%s\\\\.%s\\\\.\\\\d+$"))' "${V%.*}" "${V#*.}"
     LATEST="$(jq -r "$JQ_FILTER" <<<"$PACKAGIST_JSON" | sort -t "." -k 3 -g | tail -n 1)"
     if [ -z "$LATEST" ]; then
         continue
