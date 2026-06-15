@@ -36,6 +36,7 @@ namespace {
          * @param array                    $args Args to pass to callbacks when the hook is triggered.
          * @param ActionScheduler_Schedule $schedule The action's schedule.
          * @param string                   $group A group to put the action in.
+         * @param int                      $priority The action priority.
          *
          * @return ActionScheduler_Action An instance of the stored action.
          */
@@ -185,6 +186,35 @@ namespace {
          * @throws InvalidArgumentException If $action is not a recurring action.
          */
         public function repeat($action)
+        {
+        }
+        /**
+         * Creates a scheduled action.
+         *
+         * This general purpose method can be used in place of specific methods such as async(),
+         * async_unique(), single() or single_unique(), etc.
+         *
+         * @internal Not intended for public use, should not be overriden by subclasses.
+         * @throws   Exception May be thrown if invalid options are passed.
+         *
+         * @param array $options {
+         *     Describes the action we wish to schedule.
+         *
+         *     @type string     $type      Must be one of 'async', 'cron', 'recurring', or 'single'.
+         *     @type string     $hook      The hook to be executed.
+         *     @type array      $arguments Arguments to be passed to the callback.
+         *     @type string     $group     The action group.
+         *     @type bool       $unique    If the action should be unique.
+         *     @type int        $when      Timestamp. Indicates when the action, or first instance of the action in the case
+         *                                 of recurring or cron actions, becomes due.
+         *     @type int|string $pattern   Recurrence pattern. This is either an interval in seconds for recurring actions
+         *                                 or a cron expression for cron actions.
+         *     @type int        $priority  Lower values means higher priority. Should be in the range 0-255.
+         * }
+         *
+         * @return int
+         */
+        public function create(array $options = array())
         {
         }
         /**
@@ -1621,6 +1651,8 @@ namespace {
         /**
          * Set a lock.
          *
+         * To prevent race conditions, implementations should avoid setting the lock if the lock is already held.
+         *
          * @param string $lock_type A string to identify different lock types.
          * @return bool
          */
@@ -1684,12 +1716,45 @@ namespace {
         {
         }
         /**
+         * Given the lock string, derives the lock expiration timestamp (or false if it cannot be determined).
+         *
+         * @param string $lock_value String containing a timestamp, or pipe-separated combination of unique value and timestamp.
+         *
+         * @return false|int
+         */
+        private function get_expiration_from($lock_value)
+        {
+        }
+        /**
          * Get the key to use for storing the lock in the transient
          *
          * @param string $lock_type A string to identify different lock types.
          * @return string
          */
         protected function get_key($lock_type)
+        {
+        }
+        /**
+         * Supplies the existing lock value, or an empty string if not set.
+         *
+         * @param string $lock_type A string to identify different lock types.
+         *
+         * @return string
+         */
+        private function get_existing_lock($lock_type)
+        {
+        }
+        /**
+         * Supplies a lock value consisting of a unique value and the current timestamp, which are separated by a pipe
+         * character.
+         *
+         * Example: (string) "649de012e6b262.09774912|1688068114"
+         *
+         * @param string $lock_type A string to identify different lock types.
+         *
+         * @return string
+         */
+        private function new_lock_value($lock_type)
         {
         }
     }
@@ -1709,6 +1774,10 @@ namespace {
          */
         private $month_in_seconds = 2678400;
         /**
+         * @var string[] Default list of statuses purged by the cleaner process.
+         */
+        private $default_statuses_to_purge = [\ActionScheduler_Store::STATUS_COMPLETE, \ActionScheduler_Store::STATUS_CANCELED];
+        /**
          * ActionScheduler_QueueCleaner constructor.
          *
          * @param ActionScheduler_Store $store      The store instance.
@@ -1717,7 +1786,33 @@ namespace {
         public function __construct(\ActionScheduler_Store $store = \null, $batch_size = 20)
         {
         }
+        /**
+         * Default queue cleaner process used by queue runner.
+         *
+         * @return array
+         */
         public function delete_old_actions()
+        {
+        }
+        /**
+         * Delete selected actions limited by status and date.
+         *
+         * @param string[] $statuses_to_purge List of action statuses to purge. Defaults to canceled, complete.
+         * @param DateTime $cutoff_date Date limit for selecting actions. Defaults to 31 days ago.
+         * @param int|null $batch_size Maximum number of actions per status to delete. Defaults to 20.
+         * @param string $context Calling process context. Defaults to `old`.
+         * @return array Actions deleted.
+         */
+        public function clean_actions(array $statuses_to_purge, \DateTime $cutoff_date, $batch_size = \null, $context = 'old')
+        {
+        }
+        /**
+         * @param int[] $actions_to_delete List of action IDs to delete.
+         * @param int $lifespan Minimum scheduled age in seconds of the actions being deleted.
+         * @param string $context Context of the delete request.
+         * @return array Deleted action IDs.
+         */
+        private function delete_actions(array $actions_to_delete, $lifespan = \null, $context = 'old')
         {
         }
         /**
@@ -1815,6 +1910,19 @@ namespace {
          *        Generally, this should be capitalised and not localised as it's a proper noun.
          */
         public function process_action($action_id, $context = '')
+        {
+        }
+        /**
+         * Marks actions as either having failed execution or failed validation, as appropriate.
+         *
+         * @param int       $action_id    Action ID.
+         * @param Exception $e            Exception instance.
+         * @param string    $context      Execution context.
+         * @param bool      $valid_action If the action is valid.
+         *
+         * @return void
+         */
+        private function handle_action_error($action_id, $e, $context, $valid_action)
         {
         }
         /**
@@ -2219,6 +2327,67 @@ namespace {
         }
     }
     /**
+     * Commands for Action Scheduler.
+     */
+    class ActionScheduler_WPCLI_Clean_Command extends \WP_CLI_Command
+    {
+        /**
+         * Run the Action Scheduler Queue Cleaner
+         *
+         * ## OPTIONS
+         *
+         * [--batch-size=<size>]
+         * : The maximum number of actions to delete per batch. Defaults to 20.
+         *
+         * [--batches=<size>]
+         * : Limit execution to a number of batches. Defaults to 0, meaning batches will continue all eligible actions are deleted.
+         *
+         * [--status=<status>]
+         * : Only clean actions with the specified status. Defaults to Canceled, Completed. Define multiple statuses as a comma separated string (without spaces), e.g. `--status=complete,failed,canceled`
+         *
+         * [--before=<datestring>]
+         * : Only delete actions with scheduled date older than this. Defaults to 31 days. e.g `--before='7 days ago'`, `--before='02-Feb-2020 20:20:20'`
+         *
+         * [--pause=<seconds>]
+         * : The number of seconds to pause between batches. Default no pause.
+         *
+         * @param array $args Positional arguments.
+         * @param array $assoc_args Keyed arguments.
+         * @throws \WP_CLI\ExitException When an error occurs.
+         *
+         * @subcommand clean
+         */
+        public function clean($args, $assoc_args)
+        {
+        }
+        /**
+         * Print WP CLI message about how many batches of actions were processed.
+         *
+         * @param int $batches_processed
+         */
+        protected function print_total_batches(int $batches_processed)
+        {
+        }
+        /**
+         * Convert an exception into a WP CLI error.
+         *
+         * @param Exception $e The error object.
+         *
+         * @throws \WP_CLI\ExitException
+         */
+        protected function print_error(\Exception $e)
+        {
+        }
+        /**
+         * Print a success message with the number of completed actions.
+         *
+         * @param int $actions_deleted
+         */
+        protected function print_success(int $actions_deleted)
+        {
+        }
+    }
+    /**
      * WP CLI Queue runner.
      *
      * This class can only be called from within a WP CLI instance.
@@ -2374,6 +2543,9 @@ namespace {
          * [--group=<group>]
          * : Only run actions from the specified group. Omitting this option runs actions from all groups.
          *
+         * [--exclude-groups=<groups>]
+         * : Run actions from all groups except the specified group(s). Define multiple groups as a comma separated string (without spaces), e.g. '--group_a,group_b'. This option is ignored when `--group` is used.
+         *
          * [--free-memory-on=<count>]
          * : The number of actions to process between freeing memory. 0 disables freeing memory. Default 50.
          *
@@ -2390,6 +2562,16 @@ namespace {
          * @subcommand run
          */
         public function run($args, $assoc_args)
+        {
+        }
+        /**
+         * Converts a string of comma-separated values into an array of those same values.
+         *
+         * @param string $string The string of one or more comma separated values.
+         *
+         * @return array
+         */
+        private function parse_comma_separated_string($string): array
         {
         }
         /**
@@ -2890,7 +3072,7 @@ namespace {
         /**
          * @var array Names of tables that will be registered by this class.
          */
-        protected $tables = [];
+        protected $tables = array();
         /**
          * Can optionally be used by concrete classes to carry out additional initialization work
          * as needed.
@@ -3455,6 +3637,18 @@ namespace {
         /** @var ActionScheduler_Schedule */
         protected $schedule = \NULL;
         protected $group = '';
+        /**
+         * Priorities are conceptually similar to those used for regular WordPress actions.
+         * Like those, a lower priority takes precedence over a higher priority and the default
+         * is 10.
+         *
+         * Unlike regular WordPress actions, the priority of a scheduled action is strictly an
+         * integer and should be kept within the bounds 0-255 (anything outside the bounds will
+         * be brought back into the acceptable range).
+         *
+         * @var int
+         */
+        protected $priority = 10;
         public function __construct($hook, array $args = array(), \ActionScheduler_Schedule $schedule = \NULL, $group = '')
         {
         }
@@ -3510,6 +3704,24 @@ namespace {
          * @return bool If the action has been finished
          */
         public function is_finished()
+        {
+        }
+        /**
+         * Sets the priority of the action.
+         *
+         * @param int $priority Priority level (lower is higher priority). Should be in the range 0-255.
+         *
+         * @return void
+         */
+        public function set_priority($priority)
+        {
+        }
+        /**
+         * Gets the action priority.
+         *
+         * @return int
+         */
+        public function get_priority()
         {
         }
     }
@@ -3653,6 +3865,8 @@ namespace {
         protected static $max_args_length = 8000;
         /** @var int */
         protected static $max_index_length = 191;
+        /** @var array List of claim filters. */
+        protected $claim_filters = ['group' => '', 'hooks' => '', 'exclude-groups' => ''];
         /**
          * Initialize the data store
          *
@@ -3752,12 +3966,12 @@ namespace {
         /**
          * Get a group's ID based on its name/slug.
          *
-         * @param string $slug The string name of a group.
-         * @param bool   $create_if_not_exists Whether to create the group if it does not already exist. Default, true - create the group.
+         * @param string|array $slugs                The string name of a group, or names for several groups.
+         * @param bool         $create_if_not_exists Whether to create the group if it does not already exist. Default, true - create the group.
          *
-         * @return int The group's ID, if it exists or is created, or 0 if it does not exist and is not created.
+         * @return array The group IDs, if they exist or were successfully created. May be empty.
          */
-        protected function get_group_id($slug, $create_if_not_exists = \true)
+        protected function get_group_ids($slugs, $create_if_not_exists = \true)
         {
         }
         /**
@@ -3930,6 +4144,25 @@ namespace {
         {
         }
         /**
+         * Set a claim filter.
+         *
+         * @param string $filter_name Claim filter name.
+         * @param mixed $filter_values Values to filter.
+         * @return void
+         */
+        public function set_claim_filter($filter_name, $filter_values)
+        {
+        }
+        /**
+         * Get the claim filter value.
+         *
+         * @param string $filter_name Claim filter name.
+         * @return mixed
+         */
+        public function get_claim_filter($filter_name)
+        {
+        }
+        /**
          * Mark actions claimed.
          *
          * @param string    $claim_id Claim Id.
@@ -4000,6 +4233,8 @@ namespace {
         }
         /**
          * Add execution message to action log.
+         *
+         * @throws Exception If the action status cannot be updated to self::STATUS_RUNNING ('in-progress').
          *
          * @param int $action_id Action ID.
          *
@@ -4780,6 +5015,8 @@ namespace {
         }
         /**
          * Log Execution.
+         *
+         * @throws Exception If the action status cannot be updated to self::STATUS_RUNNING ('in-progress').
          *
          * @param string $action_id Action ID.
          */
@@ -5784,7 +6021,7 @@ namespace {
         /**
          * @var int Increment this value to trigger a schema update.
          */
-        protected $schema_version = 6;
+        protected $schema_version = 7;
         public function __construct()
         {
         }
@@ -6311,13 +6548,13 @@ namespace {
     /**
      * Registers this version of Action Scheduler.
      */
-    function action_scheduler_register_3_dot_5_dot_4()
+    function action_scheduler_register_3_dot_6_dot_4()
     {
     }
     /**
      * Initializes this version of Action Scheduler.
      */
-    function action_scheduler_initialize_3_dot_5_dot_4()
+    function action_scheduler_initialize_3_dot_6_dot_4()
     {
     }
     /**
@@ -6444,10 +6681,11 @@ namespace {
      * @param array  $args Arguments to pass when the hook triggers.
      * @param string $group The group to assign this job to.
      * @param bool   $unique Whether the action should be unique.
+     * @param int    $priority Lower values take precedence over higher values. Defaults to 10, with acceptable values falling in the range 0-255.
      *
      * @return int The action ID.
      */
-    function as_enqueue_async_action($hook, $args = array(), $group = '', $unique = \false)
+    function as_enqueue_async_action($hook, $args = array(), $group = '', $unique = \false, $priority = 10)
     {
     }
     /**
@@ -6458,10 +6696,11 @@ namespace {
      * @param array  $args Arguments to pass when the hook triggers.
      * @param string $group The group to assign this job to.
      * @param bool   $unique Whether the action should be unique.
+     * @param int    $priority Lower values take precedence over higher values. Defaults to 10, with acceptable values falling in the range 0-255.
      *
      * @return int The action ID.
      */
-    function as_schedule_single_action($timestamp, $hook, $args = array(), $group = '', $unique = \false)
+    function as_schedule_single_action($timestamp, $hook, $args = array(), $group = '', $unique = \false, $priority = 10)
     {
     }
     /**
@@ -6473,10 +6712,11 @@ namespace {
      * @param array  $args Arguments to pass when the hook triggers.
      * @param string $group The group to assign this job to.
      * @param bool   $unique Whether the action should be unique.
+     * @param int    $priority Lower values take precedence over higher values. Defaults to 10, with acceptable values falling in the range 0-255.
      *
      * @return int The action ID.
      */
-    function as_schedule_recurring_action($timestamp, $interval_in_seconds, $hook, $args = array(), $group = '', $unique = \false)
+    function as_schedule_recurring_action($timestamp, $interval_in_seconds, $hook, $args = array(), $group = '', $unique = \false, $priority = 10)
     {
     }
     /**
@@ -6500,10 +6740,11 @@ namespace {
      * @param array  $args Arguments to pass when the hook triggers.
      * @param string $group The group to assign this job to.
      * @param bool   $unique Whether the action should be unique.
+     * @param int    $priority Lower values take precedence over higher values. Defaults to 10, with acceptable values falling in the range 0-255.
      *
      * @return int The action ID.
      */
-    function as_schedule_cron_action($timestamp, $schedule, $hook, $args = array(), $group = '', $unique = \false)
+    function as_schedule_cron_action($timestamp, $schedule, $hook, $args = array(), $group = '', $unique = \false, $priority = 10)
     {
     }
     /**
