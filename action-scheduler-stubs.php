@@ -36,6 +36,7 @@ namespace {
          * @param array                    $args Args to pass to callbacks when the hook is triggered.
          * @param ActionScheduler_Schedule $schedule The action's schedule.
          * @param string                   $group A group to put the action in.
+         * phpcs:ignore Squiz.Commenting.FunctionComment.ExtraParamComment
          * @param int                      $priority The action priority.
          *
          * @return ActionScheduler_Action An instance of the stored action.
@@ -195,7 +196,6 @@ namespace {
          * async_unique(), single() or single_unique(), etc.
          *
          * @internal Not intended for public use, should not be overriden by subclasses.
-         * @throws   Exception May be thrown if invalid options are passed.
          *
          * @param array $options {
          *     Describes the action we wish to schedule.
@@ -212,7 +212,7 @@ namespace {
          *     @type int        $priority  Lower values means higher priority. Should be in the range 0-255.
          * }
          *
-         * @return int
+         * @return int The action ID. Zero if there was an error scheduling the action.
          */
         public function create(array $options = array())
         {
@@ -1139,6 +1139,16 @@ namespace {
          * column and sortable. It will also use order (ASC|DESC) using DESC by default.
          */
         protected function get_items_query_order()
+        {
+        }
+        /**
+         * Querystring arguments to persist between form submissions.
+         *
+         * @since 3.7.3
+         *
+         * @return string[]
+         */
+        protected function get_request_query_args_to_persist()
         {
         }
         /**
@@ -3809,7 +3819,7 @@ namespace {
         {
         }
         /**
-         * Retrieve the an action's log entries from the database.
+         * Retrieve an action's log entries from the database.
          *
          * @param int $action_id Action ID.
          *
@@ -6545,16 +6555,18 @@ namespace {
 }
 namespace {
     // WRCS: DEFINED_VERSION.
+    // phpcs:disable Generic.Functions.OpeningFunctionBraceKernighanRitchie.ContentAfterBrace
     /**
      * Registers this version of Action Scheduler.
      */
-    function action_scheduler_register_3_dot_6_dot_4()
+    function action_scheduler_register_3_dot_7_dot_4()
     {
     }
+    // phpcs:disable Generic.Functions.OpeningFunctionBraceKernighanRitchie.ContentAfterBrace
     /**
      * Initializes this version of Action Scheduler.
      */
-    function action_scheduler_initialize_3_dot_6_dot_4()
+    function action_scheduler_initialize_3_dot_7_dot_4()
     {
     }
     /**
@@ -6680,10 +6692,10 @@ namespace {
      * @param string $hook The hook to trigger.
      * @param array  $args Arguments to pass when the hook triggers.
      * @param string $group The group to assign this job to.
-     * @param bool   $unique Whether the action should be unique.
+     * @param bool   $unique Whether the action should be unique. It will not be scheduled if another pending or running action has the same hook and group parameters.
      * @param int    $priority Lower values take precedence over higher values. Defaults to 10, with acceptable values falling in the range 0-255.
      *
-     * @return int The action ID.
+     * @return int The action ID. Zero if there was an error scheduling the action.
      */
     function as_enqueue_async_action($hook, $args = array(), $group = '', $unique = \false, $priority = 10)
     {
@@ -6695,10 +6707,10 @@ namespace {
      * @param string $hook The hook to trigger.
      * @param array  $args Arguments to pass when the hook triggers.
      * @param string $group The group to assign this job to.
-     * @param bool   $unique Whether the action should be unique.
+     * @param bool   $unique Whether the action should be unique. It will not be scheduled if another pending or running action has the same hook and group parameters.
      * @param int    $priority Lower values take precedence over higher values. Defaults to 10, with acceptable values falling in the range 0-255.
      *
-     * @return int The action ID.
+     * @return int The action ID. Zero if there was an error scheduling the action.
      */
     function as_schedule_single_action($timestamp, $hook, $args = array(), $group = '', $unique = \false, $priority = 10)
     {
@@ -6711,10 +6723,10 @@ namespace {
      * @param string $hook The hook to trigger.
      * @param array  $args Arguments to pass when the hook triggers.
      * @param string $group The group to assign this job to.
-     * @param bool   $unique Whether the action should be unique.
+     * @param bool   $unique Whether the action should be unique. It will not be scheduled if another pending or running action has the same hook and group parameters.
      * @param int    $priority Lower values take precedence over higher values. Defaults to 10, with acceptable values falling in the range 0-255.
      *
-     * @return int The action ID.
+     * @return int The action ID. Zero if there was an error scheduling the action.
      */
     function as_schedule_recurring_action($timestamp, $interval_in_seconds, $hook, $args = array(), $group = '', $unique = \false, $priority = 10)
     {
@@ -6739,10 +6751,10 @@ namespace {
      * @param string $hook The hook to trigger.
      * @param array  $args Arguments to pass when the hook triggers.
      * @param string $group The group to assign this job to.
-     * @param bool   $unique Whether the action should be unique.
+     * @param bool   $unique Whether the action should be unique. It will not be scheduled if another pending or running action has the same hook and group parameters.
      * @param int    $priority Lower values take precedence over higher values. Defaults to 10, with acceptable values falling in the range 0-255.
      *
-     * @return int The action ID.
+     * @return int The action ID. Zero if there was an error scheduling the action.
      */
     function as_schedule_cron_action($timestamp, $schedule, $hook, $args = array(), $group = '', $unique = \false, $priority = 10)
     {
