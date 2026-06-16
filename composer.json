@@ -1,5 +1,5 @@
 {
-    "name": "mralaminahamed/phpstan-action-scheduler-stubs",
+    "name": "mralaminahamed/action-scheduler-stubs",
     "description": "Action Scheduler function and class declaration stubs for static analysis.",
     "type": "library",
     "keywords": [
