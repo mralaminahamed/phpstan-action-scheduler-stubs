@@ -8,8 +8,8 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 HEADER=$'/**\n * Generated stub declarations for Action Scheduler.\n * @see https://actionscheduler.org\n * @see https://github.com/mralaminahamed/phpstan-action-scheduler-stubs\n */'
 
-FILE="$ROOT_DIR/action-scheduler-stubs.php"
-FILE_CONSTANTS="$ROOT_DIR/action-scheduler-constants-stubs.php"
+FILE="$ROOT_DIR/action-scheduler-stubs.stub"
+FILE_CONSTANTS="$ROOT_DIR/action-scheduler-constants-stubs.stub"
 GENERATOR_BIN="$ROOT_DIR/vendor/bin/generate-stubs"
 FINDER_FILE="$ROOT_DIR/configs/finder.php"
 

@@ -31,8 +31,8 @@ composer require --dev mralaminahamed/phpstan-action-scheduler-stubs
 ### Manual Installation
 
 Download the stub files directly:
-- [action-scheduler-stubs.php](https://raw.githubusercontent.com/mralaminahamed/phpstan-action-scheduler-stubs/main/action-scheduler-stubs.php)
-- [action-scheduler-constants-stubs.php](https://raw.githubusercontent.com/mralaminahamed/phpstan-action-scheduler-stubs/main/action-scheduler-constants-stubs.php)
+- [action-scheduler-stubs.stub](https://raw.githubusercontent.com/mralaminahamed/phpstan-action-scheduler-stubs/main/action-scheduler-stubs.stub)
+- [action-scheduler-constants-stubs.stub](https://raw.githubusercontent.com/mralaminahamed/phpstan-action-scheduler-stubs/main/action-scheduler-constants-stubs.stub)
 
 ## Basic Configuration
 
@@ -48,8 +48,8 @@ phpstan-action-scheduler-stubs/
 ├── configs/                                  # Configuration files for stub generation
 │   ├── bootstrap.php                         # PHPStan bootstrap with WP constants
 │   └── finder.php                            # File finder configuration
-├── action-scheduler-constants-stubs.php      # Constants stub file
-├── action-scheduler-stubs.php               # Main stubs file with classes and functions
+├── action-scheduler-constants-stubs.stub      # Constants stub file
+├── action-scheduler-stubs.stub               # Main stubs file with classes and functions
 ├── phpstan.neon                              # PHPStan configuration
 ├── source/                                   # Source for generating stubs
 └── tests/                                    # Test files

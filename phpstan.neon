@@ -1,8 +1,8 @@
 parameters:
     paths:
-        - action-scheduler-stubs.php
+        - action-scheduler-stubs.stub
     scanFiles:
-        - action-scheduler-constants-stubs.php
+        - action-scheduler-constants-stubs.stub
     bootstrapFiles:
         - configs/bootstrap.php
     level: 5
