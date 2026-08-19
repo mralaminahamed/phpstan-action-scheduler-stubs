@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor this package declares, and current stable. A stubs package is consumed by
+        # projects on both, and `composer test` is the only thing that would notice a syntax feature
+        # slipping in that 7.4 cannot parse.
+        php: ['7.4', '8.3']
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      # Installs the upstream Action Scheduler into source/ through the post-install hook, which is
+      # what tests/StubsTest.php compares the stubs against. Without it those assertions skip and the
+      # suite passes while proving nothing.
+      - uses: ramsey/composer-install@v3
+
+      - run: composer cs
+
+      - run: composer analyze
+
+      - run: composer test
