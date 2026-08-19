@@ -1,0 +1,85 @@
+name: Upstream check
+
+# The failure a stubs package actually has is staleness: Action Scheduler ships a new release, this
+# package does not, and nobody finds out until a consumer's PHPStan reports `Function not found` for
+# something that exists. Nothing here looks broken in the meantime, which is why it needs a schedule
+# rather than a reviewer.
+
+on:
+  schedule:
+    # Mondays, 06:00 UTC.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compare the pinned version against the latest release
+        id: compare
+        run: |
+          set -euo pipefail
+
+          pinned="$(php -r 'echo json_decode(file_get_contents("source/composer.json"), true)["require"]["woocommerce/action-scheduler"];')"
+
+          latest="$(
+            curl -fsSL https://repo.packagist.org/p2/woocommerce/action-scheduler.json \
+              | php -r '$d = json_decode(file_get_contents("php://stdin"), true)["packages"]["woocommerce/action-scheduler"];
+                        foreach ($d as $v) { if (strpos($v["version"], "dev-") !== 0) { echo ltrim($v["version"], "v"); break; } }'
+          )"
+
+          # Validated before either value goes near a later step. They come from a JSON file and from
+          # a public API, and a version string is the only shape that should ever reach an issue body.
+          for v in "$pinned" "$latest"; do
+            if ! printf '%s' "$v" | grep -qE '^[0-9]+(\.[0-9]+)*$'; then
+              echo "ERROR: refusing to act on a version that is not numeric: '$v'" >&2
+              exit 1
+            fi
+          done
+
+          echo "pinned=$pinned" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "stale=$( [ "$pinned" = "$latest" ] && echo false || echo true )" >> "$GITHUB_OUTPUT"
+
+          echo "pinned $pinned, latest $latest"
+
+      - name: Open an issue when a newer release exists
+        if: steps.compare.outputs.stale == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PINNED: ${{ steps.compare.outputs.pinned }}
+          LATEST: ${{ steps.compare.outputs.latest }}
+        run: |
+          set -euo pipefail
+
+          title="Action Scheduler ${LATEST} is out (stubs pinned at ${PINNED})"
+
+          # Reuse an open issue rather than filing one every Monday until somebody acts.
+          if gh issue list --state open --search "$title" --json title --jq '.[].title' | grep -Fxq "$title"; then
+            echo "already reported"
+            exit 0
+          fi
+
+          gh issue create \
+            --title "$title" \
+            --label upstream \
+            --body "$(printf '%s\n' \
+              "\`source/composer.json\` pins \`woocommerce/action-scheduler\` at **${PINNED}**; the latest release is **${LATEST}**." \
+              "" \
+              "To update:" \
+              "" \
+              '```bash' \
+              "composer --working-dir=source/ require woocommerce/action-scheduler:${LATEST}" \
+              "composer generate" \
+              "composer check" \
+              '```' \
+              "" \
+              "\`composer test\` compares the regenerated stubs against upstream, so a missing or removed function fails there rather than in a consumer's project." \
+            )"
